@@ -1,4 +1,2 @@
-*.descr
-*.pb.go
 *.pbz
 pbzlib-go

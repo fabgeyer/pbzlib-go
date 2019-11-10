@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"./tests"
+	"github.com/fabgeyer/pbzlib-go/tests"
 	"github.com/fabgeyer/pbzlib-go/pbzlib"
 	"github.com/golang/protobuf/proto"
 )
