@@ -21,25 +21,16 @@ package main
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/fabgeyer/pbzlib-go/pbzlib"
 	"github.com/golang/protobuf/proto"
 )
 
 func main() {
-	var wg sync.WaitGroup
-	messages := make(chan proto.Message)
-	wg.Add(1)
-	go pbzlib.PBZReader("output.pbz", messages, &wg)
-	for {
-		msg, ok := <-messages
-		if !ok {
-			break
-		}
-		fmt.Println(msg)
-	}
-	wg.Wait()
+	rdr, _ := pbzlib.NewReader("output.pbz")
+	defer rdr.Close()
+	msg, _ := rdr.Read()
+	fmt.Println(msg)
 }
 ```
 
