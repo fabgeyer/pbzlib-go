@@ -11,12 +11,14 @@ import (
 
 func main() {
 	// -----------------------------------------------------
-	// Writer example
+	// Writer example using gorouting
 
 	var wg sync.WaitGroup
+	done := make(chan bool)
+
 	wmessages := make(chan proto.Message)
 	wg.Add(1)
-	go pbzlib.PBZWriter("output.pbz", "tests/messages.descr", wmessages, &wg)
+	go pbzlib.PBZWriter("output.pbz", "tests/messages.descr", wmessages, &wg, done)
 
 	wmessages <- &tests.Header{Version: 1}
 	for i := int32(0); i < 10; i++ {
@@ -26,11 +28,11 @@ func main() {
 	wg.Wait()
 
 	// -----------------------------------------------------
-	// Reader example
+	// Reader example using goroutine
 
 	rmessages := make(chan proto.Message)
 	wg.Add(1)
-	go pbzlib.PBZReader("output.pbz", rmessages, &wg)
+	go pbzlib.PBZReader("output.pbz", rmessages, &wg, done)
 	for {
 		msg, ok := <-rmessages
 		if !ok {
@@ -39,4 +41,12 @@ func main() {
 		fmt.Println(msg)
 	}
 	wg.Wait()
+
+	// -----------------------------------------------------
+	// Reader example using NewReader
+
+	rdr, _ := pbzlib.NewReader("output.pbz")
+	defer rdr.Close()
+	msg, _ := rdr.Read()
+	fmt.Println(msg)
 }

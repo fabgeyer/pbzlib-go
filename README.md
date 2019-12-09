@@ -48,3 +48,4 @@ func main() {
 
 - [Python version](https://github.com/fabgeyer/pbzlib-py)
 - [C/C++ version](https://github.com/fabgeyer/pbzlib-c-cpp)
+- [Java version](https://github.com/fabgeyer/pbzlib-java)
