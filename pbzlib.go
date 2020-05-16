@@ -13,12 +13,8 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/runtime/protoimpl"
 )
-
-const MAGIC = "\x41\x42"
-const T_FILE_DESCRIPTOR = 1
-const T_DESCRIPTOR_NAME = 2
-const T_MESSAGE = 3
 
 // ---------------------------------------------------------------------------
 
@@ -208,7 +204,8 @@ func (r *Reader) Read() (proto.Message, error) {
 		}
 		switch vtype {
 		case T_FILE_DESCRIPTOR:
-			proto.RegisterFile("r", buf)
+			//proto.RegisterFile("r", buf)
+			protoimpl.DescBuilder{RawDescriptor: buf}.Build()
 
 		case T_DESCRIPTOR_NAME:
 			r.nextType = proto.MessageType(string(buf))
@@ -220,6 +217,9 @@ func (r *Reader) Read() (proto.Message, error) {
 				return nil, errors.New("Unknown type")
 			}
 			return msg, nil
+
+		case T_PROTOBUF_VERSION:
+			continue
 
 		default:
 			return nil, errors.New("Unknown type")

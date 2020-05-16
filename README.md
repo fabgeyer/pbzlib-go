@@ -5,13 +5,6 @@ The main use-case is to save and read a large collection of objects of the same 
 Each file contains a header with the description of the protocol buffer, meaning that no compilation of `.proto` description file is required before reading a `pbz` file.
 
 
-## Installation
-
-```
-$ go get github.com/fabgeyer/pbzlib-go/pbzlib
-```
-
-
 ## Example
 
 Reading a `pbz` file:
@@ -21,16 +14,21 @@ package main
 
 import (
 	"fmt"
+	"io"
 
-	"github.com/fabgeyer/pbzlib-go/pbzlib"
-	"github.com/golang/protobuf/proto"
+	"github.com/fabgeyer/pbzlib-go"
 )
 
 func main() {
 	rdr, _ := pbzlib.NewReader("output.pbz")
 	defer rdr.Close()
-	msg, _ := rdr.Read()
-	fmt.Println(msg)
+	for {
+		msg, err := rdr.Read()
+		if err == io.EOF {
+			break
+		}
+		fmt.Println(msg)
+	}
 }
 ```
 

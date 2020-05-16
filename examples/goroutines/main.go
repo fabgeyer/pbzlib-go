@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/fabgeyer/pbzlib-go"
 	"github.com/fabgeyer/pbzlib-go/tests"
-	"github.com/fabgeyer/pbzlib-go/pbzlib"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -18,7 +18,7 @@ func main() {
 
 	wmessages := make(chan proto.Message)
 	wg.Add(1)
-	go pbzlib.PBZWriter("output.pbz", "tests/messages.descr", wmessages, &wg, done)
+	go pbzlib.PBZWriter("output.pbz", "../../tests/messages.descr", wmessages, &wg, done)
 
 	wmessages <- &tests.Header{Version: 1}
 	for i := int32(0); i < 10; i++ {
@@ -41,12 +41,4 @@ func main() {
 		fmt.Println(msg)
 	}
 	wg.Wait()
-
-	// -----------------------------------------------------
-	// Reader example using NewReader
-
-	rdr, _ := pbzlib.NewReader("output.pbz")
-	defer rdr.Close()
-	msg, _ := rdr.Read()
-	fmt.Println(msg)
 }
