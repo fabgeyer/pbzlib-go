@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/schollz/progressbar/v3"
 	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
@@ -24,17 +25,27 @@ type Writer struct {
 	last_descriptor string
 }
 
-func writeTLV(w io.Writer, vtype byte, buf []byte) {
+func writeTLV(w io.Writer, vtype byte, buf []byte) error {
 	// Write type of message
-	w.Write([]byte{vtype})
+	_, err := w.Write([]byte{vtype})
+	if err != nil {
+		return err
+	}
 
 	// Write size of message as uvarint
 	bufsz := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutUvarint(bufsz, uint64(len(buf)))
-	w.Write(bufsz[:n])
+	_, err = w.Write(bufsz[:n])
+	if err != nil {
+		return err
+	}
 
 	// Write message
-	w.Write(buf)
+	_, err = w.Write(buf)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewWriter(fname string, fdescr string) (*Writer, error) {
@@ -61,11 +72,17 @@ func (w *Writer) open(fname string, fdescr string) error {
 	w.gzhandle = gzip.NewWriter(w.fhandle)
 
 	// Write magic header
-	w.gzhandle.Write([]byte(MAGIC))
+	_, err = w.gzhandle.Write([]byte(MAGIC))
+	if err != nil {
+		return err
+	}
 
 	// Write protobuf descriptor set
-	writeTLV(w.gzhandle, T_FILE_DESCRIPTOR, descr)
-	return nil
+	return writeTLV(w.gzhandle, T_FILE_DESCRIPTOR, descr)
+}
+
+func (w *Writer) WriteRaw(vtype byte, buf []byte) error {
+	return writeTLV(w.gzhandle, vtype, buf)
 }
 
 func (w *Writer) Write(msg proto.Message) error {
@@ -73,7 +90,10 @@ func (w *Writer) Write(msg proto.Message) error {
 	descriptor := proto.MessageName(msg)
 	if descriptor != w.last_descriptor {
 		buf := []byte(descriptor)
-		writeTLV(w.gzhandle, T_DESCRIPTOR_NAME, buf)
+		err := writeTLV(w.gzhandle, T_DESCRIPTOR_NAME, buf)
+		if err != nil {
+			return err
+		}
 		w.last_descriptor = descriptor
 	}
 
@@ -82,8 +102,7 @@ func (w *Writer) Write(msg proto.Message) error {
 	if err != nil {
 		return err
 	}
-	writeTLV(w.gzhandle, T_MESSAGE, buf)
-	return nil
+	return writeTLV(w.gzhandle, T_MESSAGE, buf)
 }
 
 func (w *Writer) Close() {
@@ -154,21 +173,36 @@ func readTLV(r *bufio.Reader) (byte, []byte, error) {
 
 func NewReader(path string) (*Reader, error) {
 	r := new(Reader)
-	err := r.open(path)
+	err := r.open(path, false, "")
 	if err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
-func (r *Reader) open(path string) error {
+func NewReaderWithProgressBar(path string, description string) (*Reader, error) {
+	r := new(Reader)
+	err := r.open(path, true, description)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *Reader) open(path string, withProgressBar bool, description string) error {
 	var err error
 	r.fhandle, err = os.Open(path)
 	if err != nil {
 		return err
 	}
 
-	r.gzhandle, err = gzip.NewReader(r.fhandle)
+	if withProgressBar {
+		stat, _ := os.Stat(path)
+		bar := progressbar.DefaultBytes(stat.Size(), description)
+		r.gzhandle, err = gzip.NewReader(io.TeeReader(r.fhandle, bar))
+	} else {
+		r.gzhandle, err = gzip.NewReader(r.fhandle)
+	}
 	if err != nil {
 		return err
 	}
@@ -193,6 +227,10 @@ func (r *Reader) Close() {
 	r.fhandle.Close()
 }
 
+func (r *Reader) ReadRaw() (byte, []byte, error) {
+	return readTLV(r.rdr)
+}
+
 func (r *Reader) Read() (proto.Message, error) {
 	for {
 		vtype, buf, err := readTLV(r.rdr)
@@ -204,7 +242,6 @@ func (r *Reader) Read() (proto.Message, error) {
 		}
 		switch vtype {
 		case T_FILE_DESCRIPTOR:
-			//proto.RegisterFile("r", buf)
 			protoimpl.DescBuilder{RawDescriptor: buf}.Build()
 
 		case T_DESCRIPTOR_NAME:
